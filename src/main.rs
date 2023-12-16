@@ -1,5 +1,8 @@
 use tokio;
 use dotenv::dotenv;
+use std::env::VarError;
+use std::io::Error as IOError;
+use google_sheets4::{self, Sheets};
 use poise::serenity_prelude as serenity;
 
 // Bot storage
@@ -12,6 +15,83 @@ type Error = Box<dyn std::error::Error + Send + Sync>;
 // Context holds most of the runtime information such as the user which invoked a command 
 // and has methods implemented on it that performs actions such as sending a message
 type Context<'a> = poise::Context<'a, Data, Error>;
+
+enum BuildHubError {
+    // VarError occurs when failing to read SA_CREDENTIALS from env
+    VarError(VarError),
+    // IOError occurs when yup_oauth2 fails to read or validate SA_CREDENTIALS
+    IOError(IOError),
+}
+
+impl From<VarError> for BuildHubError {
+    fn from(value: VarError) -> Self {
+        BuildHubError::VarError(value)
+    }
+}
+
+impl From<IOError> for BuildHubError {
+    fn from(value: IOError) -> Self {
+        BuildHubError::IOError(value)
+    }
+}
+
+// build_sheets_api builds the "sheets_hub" for google_sheets4, which is the central object to maintain
+// state and access all "activities" 
+async fn build_hub() -> Result<Sheets<hyper_rustls::HttpsConnector<yup_oauth2::hyper::client::HttpConnector>>, BuildHubError> {
+    // !WARNING: Do not expose sa_credentials
+    let sa_credentials_path = std::env::var("SA_CREDENTIALS_PATH")?;
+    let sa_credentials = yup_oauth2::read_service_account_key(sa_credentials_path)
+        .await?;
+    let auth = yup_oauth2::ServiceAccountAuthenticator::builder(sa_credentials)
+        .build()
+        .await?;
+
+    // Build google_sheets client through HttpConnector
+    let hyper_client_builder = &google_sheets4::hyper::Client::builder();
+    let http_connector_builder = hyper_rustls::HttpsConnectorBuilder::new();
+    let http_connector_builder_options = http_connector_builder
+        .with_native_roots()
+        .https_or_http()
+        .enable_http1()
+        .build();
+
+    Ok(Sheets::new(hyper_client_builder.build(http_connector_builder_options), auth))
+}
+
+// append_sheet adds values to the specified excel sheet
+// append_sheet(
+// range: Sheet ID + Table Constraints,
+// values: Struct that contains JSON::values that are to be appended to the sheet
+// ) -> Result<u32, Error>
+async fn append_sheet(range: String, values: google_sheets4::api::ValueRange) {
+
+    let sheets_hub = match build_hub().await {
+        Ok(hub) => hub,
+        Err(err) => match err {
+            BuildHubError::VarError(var_err) => {
+                println!("ERROR: build_hub failed. Could not read SA_CREDENTIALS from .env");
+                eprintln!("{var_err}");
+                return;
+            },
+            BuildHubError::IOError(io_err) => {
+                println!("ERROR: build_hub failed. yup_oauth2 to read or validate SA_CREDENTIALS.");
+                eprintln!("{io_err}");
+                return;
+            },
+        }
+    };
+    let spreadsheet_id = std::env::var("SPREADSHEET_ID").expect("Spreadsheet ID must be set");
+    let result = sheets_hub.spreadsheets().values_append(values, spreadsheet_id.as_str(), range.as_str())
+        .value_input_option("USER_ENTERED")
+        .doit()
+        .await;
+
+    match result {
+        Ok(resp) => println!("Append Response: {:?}", resp),
+        Err(e) => eprintln!("Error: {:?}", e),
+    }
+}
+
 #[poise::command(slash_command)]
 async fn att(ctx: Context<'_>, message: Option<u32>) -> Result<(), Error> {
     ctx.say(String::from("WIP")).await?;

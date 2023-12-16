@@ -3,5 +3,6 @@ debug/
 target/
 Cargo.lock
 
-# env
+# secrets
 .env
+secrets/

@@ -3,15 +3,23 @@ name = "murali"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-dotenv = "0.15.0"
+# Shuttle Deployment
+shuttle-serenity = "0.35.0"
+shuttle-runtime = "0.35.0"
+shuttle-poise = "0.35.1"
+shuttle-secrets = "0.35.0"
+# Discord API and Bot 
+serenity = { version = "0.11.5", default-features = false, features = ["client", "gateway", "rustls_backend", "model"] }
+poise = "0.5.7"
+
+yup-oauth2 = "8.3.0"
 google-sheets4 = "5.0.3"
+
+# HTTP Client Builders
 hyper = "1.0.1"
 hyper-rustls = "0.24.2"
-poise = "0.5.7"
+
 serde = "1.0.193"
 serde_json = "1.0.108"
 tokio = { version = "1.35.0", features = ["rt-multi-thread", "full"] }
-yup-oauth2 = "8.3.0"

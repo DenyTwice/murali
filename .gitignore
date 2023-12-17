@@ -3,6 +3,11 @@ debug/
 target/
 Cargo.lock
 
-# secrets
+# Secrets
 .env
 secrets/
+
+# Shuttle
+.shuttle-storage
+Secrets*.toml
+.ignore

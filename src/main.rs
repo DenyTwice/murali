@@ -1,7 +1,9 @@
-use tokio;
-use dotenv::dotenv;
-use std::env::VarError;
-use std::io::Error as IOError;
+use shuttle_poise::ShuttlePoise;
+use shuttle_secrets::SecretStore;
+
+use std::path::PathBuf;
+use std::{env, env::VarError, io::Error as IOError, process::exit};
+
 use google_sheets4::{self, Sheets};
 use poise::serenity_prelude as serenity;
 
@@ -37,10 +39,14 @@ impl From<IOError> for BuildHubError {
 
 // build_sheets_api builds the "sheets_hub" for google_sheets4, which is the central object to maintain
 // state and access all "activities" 
-async fn build_hub() -> Result<Sheets<hyper_rustls::HttpsConnector<yup_oauth2::hyper::client::HttpConnector>>, BuildHubError> {
+async fn build_hub(secret_store: &SecretStore) -> Result<Sheets<hyper_rustls::HttpsConnector<yup_oauth2::hyper::client::HttpConnector>>, BuildHubError> {
     // !WARNING: Do not expose sa_credentials
-    let sa_credentials_path = std::env::var("SA_CREDENTIALS_PATH")?;
-    let sa_credentials = yup_oauth2::read_service_account_key(sa_credentials_path)
+    let sa_credentials_path = secret_store.get("SA_CREDENTIALS_PATH").expect("SA_CREDENTIALS_PATH must be set");
+
+    let mut path = PathBuf::new();
+    path.push(env::current_dir()?);
+    path.push(sa_credentials_path);
+    let sa_credentials = yup_oauth2::read_service_account_key(path)
         .await?;
     let auth = yup_oauth2::ServiceAccountAuthenticator::builder(sa_credentials)
         .build()
@@ -58,30 +64,14 @@ async fn build_hub() -> Result<Sheets<hyper_rustls::HttpsConnector<yup_oauth2::h
     Ok(Sheets::new(hyper_client_builder.build(http_connector_builder_options), auth))
 }
 
-// append_sheet adds values to the specified excel sheet
-// append_sheet(
+// append_values_to_sheet adds values to the specified excel sheet
+// hub: Sheets hub 
 // range: Sheet ID + Table Constraints,
 // values: Struct that contains JSON::values that are to be appended to the sheet
-// ) -> Result<u32, Error>
-async fn append_sheet(range: String, values: google_sheets4::api::ValueRange) {
+async fn append_values_to_sheet(hub: Sheets<hyper_rustls::HttpsConnector<yup_oauth2::hyper::client::HttpConnector>>, range: String, values: google_sheets4::api::ValueRange) {
 
-    let sheets_hub = match build_hub().await {
-        Ok(hub) => hub,
-        Err(err) => match err {
-            BuildHubError::VarError(var_err) => {
-                println!("ERROR: build_hub failed. Could not read SA_CREDENTIALS from .env");
-                eprintln!("{var_err}");
-                return;
-            },
-            BuildHubError::IOError(io_err) => {
-                println!("ERROR: build_hub failed. yup_oauth2 to read or validate SA_CREDENTIALS.");
-                eprintln!("{io_err}");
-                return;
-            },
-        }
-    };
     let spreadsheet_id = std::env::var("SPREADSHEET_ID").expect("Spreadsheet ID must be set");
-    let result = sheets_hub.spreadsheets().values_append(values, spreadsheet_id.as_str(), range.as_str())
+    let result = hub.spreadsheets().values_append(values, spreadsheet_id.as_str(), range.as_str())
         .value_input_option("USER_ENTERED")
         .doit()
         .await;
@@ -98,9 +88,24 @@ async fn att(ctx: Context<'_>, message: Option<u32>) -> Result<(), Error> {
     Ok(())
 }
 
-#[tokio::main]
-async fn main() {
-    dotenv().ok();
+#[shuttle_runtime::main]
+async fn main(#[shuttle_secrets::Secrets] secret_store: SecretStore) -> ShuttlePoise<Data, Error>{
+
+    let sheets_hub = match build_hub(&secret_store).await {
+        Ok(hub) => hub,
+        Err(err) => match err {
+            BuildHubError::VarError(var_err) => {
+                println!("ERROR: build_hub failed. Could not read SA_CREDENTIALS from .env");
+                eprintln!("{var_err}");
+                exit(1);
+            },
+            BuildHubError::IOError(io_err) => {
+                println!("ERROR: build_hub failed. yup_oauth2 to read or validate SA_CREDENTIALS.");
+                eprintln!("{io_err}");
+                exit(1);
+            },
+        }
+    };
 
     let framework_options = poise::FrameworkOptions {
             commands: vec![att()],
@@ -110,8 +115,8 @@ async fn main() {
             },
             ..Default::default()
     };
-    let token = std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN"); // !WARNING: Do NOT expose Discord Bot Token
-    
+    // let token = std::env::var("DISCORD_TOKEN").expect("missing DISCORD_TOKEN"); // !WARNING: Do NOT expose Discord Bot Token
+    let token = secret_store.get("DISCORD_TOKEN").expect("Discord Token must be set"); 
     let framework = poise::Framework::builder()
         .options(framework_options)
         .token(token)
@@ -121,8 +126,12 @@ async fn main() {
                 poise::builtins::register_globally(ctx, &framework.options().commands).await?;
                 Ok(Data {})
             })
-        });
+        })
+        .build()
+        .await
+        .map_err(shuttle_runtime::CustomError::new)?;
 
-    framework.run().await.unwrap();
+    // framework.run().await.unwrap();
+    Ok(framework.into())
 }
 

@@ -10,7 +10,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      SHUTTLE_API_KEY: '{{ secrets.SHUTTLE_API_KEY }}'
+      SHUTTLE_API_KEY: '${{ secrets.SHUTTLE_API_KEY }}'
     steps:
       - uses: shuttle-hq/deploy-action@main
         with:

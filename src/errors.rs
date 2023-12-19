@@ -1,8 +1,19 @@
+/**
+This file cuontains custom error enums and corresponding conversion 
+functions. Eventually, I hope to replace this with the "anyhow" crate
+or with Eyre. Seems too tedious to do this for every scenario anyway.
+*/
+
+
 use std::io::Error as IOError;
 use std::env::VarError;
 
+// Errors for main::get_member_record
 pub enum GetRecordError {
+    // IOError occurs when failing to open the CSV file for reading
     IOError(IOError),
+    // CSVError occurs when Rust fails to read a record (could be any record,
+    // not just the key) in the CSV file
     CSVError(csv::Error),
 }
 
@@ -18,6 +29,7 @@ impl From<csv::Error> for GetRecordError {
     }
 }
 
+// Errors for sheets::build_hub
 #[derive(Debug)]
 pub enum BuildHubError {
     // VarError occurs when failing to read SA_CREDENTIALS from env
@@ -37,4 +49,3 @@ impl From<IOError> for BuildHubError {
         BuildHubError::IOError(value)
     }
 }
-

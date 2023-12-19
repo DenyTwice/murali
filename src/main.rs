@@ -133,7 +133,7 @@ async fn append_values_to_sheet(spreadsheet_id: &str, hub: SheetsHub, value_rang
 // Ok<Some> if member data found, Ok<None> otherwise
 // Err() if failed in execution
 fn get_member_record(key: &str) -> Result<Option<StringRecord>, errors::GetRecordError> {
-    let file = File::open("secrets/MemberData.csv")?;
+    let file = File::open("MemberData.csv")?;
     let mut rdr = ReaderBuilder::new().from_reader(file);
     let csv_iter = rdr.records();
 
@@ -154,9 +154,11 @@ fn get_member_record(key: &str) -> Result<Option<StringRecord>, errors::GetRecor
 
 #[poise::command(slash_command)]
 async fn att(ctx: Context<'_>, seat_number: u32, mut time_in: Option<String>, mut time_out: Option<String>) -> Result<(), Error> {
+    print!("yes x1121");
     let spreadsheet_id = ctx.data().secret_store.get("SPREADSHEET_ID").expect("SPREADSHEET");
-
     let author = ctx.author().name.to_string();
+    print!("yes x 2");
+    ctx.defer().await?;
     
     // Maybe extract this into another function for readability
     match get_member_record(author.as_str()) {
@@ -193,11 +195,13 @@ async fn att(ctx: Context<'_>, seat_number: u32, mut time_in: Option<String>, mu
 
                 // CAUTION: Should handle this error safely
                 let hub = build_hub(&ctx.data().secret_store).await.unwrap();
+
+                print!("yes x 3");
                 match append_values_to_sheet(spreadsheet_id.as_str(), hub, ValueRange::from(row)).await {
                     // Send appended data and/or log errors
                     Ok(_) => {
                         print!("yes");
-                        let message = row.pretty_print();
+                        let message = String::from("yes it workrs tilhere");
                         ctx.reply(message).await?;
                         return Ok(());
                     }

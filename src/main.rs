@@ -98,7 +98,7 @@ async fn att(ctx: Context<'_>, seat_number: u32, mut time_in: Option<String>, mu
                 // The range determines which sheet and "where" the table is
                 // Required format: '{Current date}'!1:6
                 // 1:6 indicates that the table starts from column one and ends at column six
-                let range = format!("'{}'!1:6", chrono::Local::now().with_timezone(&chrono_tz::Asia::Kolkata).format("%e %b"));
+                let range = format!("'{}'!1:50", chrono::Local::now().with_timezone(&chrono_tz::Asia::Kolkata).format("%e %b"));
                 // Log range
 
                 // BUG: This function seems to stop incrementing after 6  

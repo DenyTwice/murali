@@ -85,7 +85,6 @@ pub async fn build_hub(secret_store: &SecretStore) -> Result<SheetsHub, errors::
     Ok(Sheets::new(hyper_client_builder.build(http_connector_builder_options), auth))
 }
 
-// Buggy, does not increment after 6
 // This function should return the serial number to be added in the latest append
 pub async fn get_next_empty_row(secret_store: &SecretStore, range: &str, spreadsheet_id: &str) -> Option<usize> {
     // CAUTION: Should handle this error safely

@@ -32,13 +32,16 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 fn get_member_record(key: &str) -> Result<Option<StringRecord>, errors::GetRecordError> {
     let file = File::open("MemberData.csv")?;
     // Log success in opening file
-    let mut rdr = ReaderBuilder::new().from_reader(file);
+    let mut rdr = ReaderBuilder::new()
+        .has_headers(false)
+        .from_reader(file);
     let csv_iter = rdr.records();
 
     for item in csv_iter {
         if let Ok(record) = item { 
             // Failing this is a item of incorrectly set CSV file.
             let user_name = record.get(0).expect("Members data must be set");
+            println!("{}", user_name);
             // Log failing to get record
             if user_name == key {
                 // Log success in finding record
@@ -101,7 +104,6 @@ async fn att(ctx: Context<'_>, seat_number: u32, mut time_in: Option<String>, mu
                 let range = format!("'{}'!1:50", chrono::Local::now().with_timezone(&chrono_tz::Asia::Kolkata).format("%e %b"));
                 // Log range
 
-                // BUG: This function seems to stop incrementing after 6  
                 let serial_num = sheets::get_next_empty_row(&ctx.data().secret_store, range.as_str(), spreadsheet_id.as_str()).await.unwrap();
                 // Log serial_num
 

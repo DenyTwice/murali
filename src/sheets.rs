@@ -40,7 +40,7 @@ impl<'a> From<Row<'a>> for ValueRange {
                           Value::String(value.time_in.to_owned()),
                           Value::String(value.time_out.to_owned())
         ]]);
-        let range = format!("'{}'!1:6", chrono::Local::now().with_timezone(&chrono_tz::Asia::Kolkata).format("%e %b"));
+        let range = format!("{}!1:6", chrono::Local::now().with_timezone(&chrono_tz::Asia::Kolkata).format("%e %b"));
 
         ValueRange { 
             major_dimension: Some(String::from("ROWS")), 

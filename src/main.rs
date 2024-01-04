@@ -100,7 +100,8 @@ async fn att(ctx: Context<'_>, seat_number: u32, mut time_in: Option<String>, mu
                 // The range determines which sheet and "where" the table is
                 // Required format: '{Current date}'!1:6
                 // 1:6 indicates that the table starts from column one and ends at column six
-                let range = format!("{}!1:50", chrono::Local::now().with_timezone(&chrono_tz::Asia::Kolkata).format("%e %b"));
+                let date = format!("{}", chrono::Local::now().with_timezone(&chrono_tz::Asia::Kolkata).format("%e %b"));
+                let range = format!("{}!1:50", date.trim());
                 // Log range
 
                 let serial_num = sheets::get_next_empty_row(&ctx.data().secret_store, range.as_str(), spreadsheet_id.as_str()).await.unwrap();

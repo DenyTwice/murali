@@ -10,6 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Custom shuttle deploy action
-        uses: denytwice/shuttle-deploy@v0.2-alpha
+        uses: denytwice/shuttle-deploy@v0.3-alpha
         with:
           deploy-key: "test"

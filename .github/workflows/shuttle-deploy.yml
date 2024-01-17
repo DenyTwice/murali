@@ -9,16 +9,5 @@ jobs:
   deploy-project:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4.1.1
-
-      - name: Setup Rust
-        uses: ATiltedTree/setup-rust@v1.0.5
-        with:
-          rust-version: stable
-
-      - name: Install binstall
-        uses: cargo-bins/cargo-binstall@main
-
-      - name: Install shuttle
-        run: cargo binstall -y cargo-shuttle
+      - name: Custom shuttle deploy action
+        uses: denytwice/shuttle-deploy@0.1-alpha

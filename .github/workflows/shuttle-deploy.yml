@@ -11,3 +11,5 @@ jobs:
     steps:
       - name: Custom shuttle deploy action
         uses: denytwice/shuttle-deploy@v0.2-alpha
+        with:
+          deploy-key: "test"

@@ -1,23 +1,24 @@
-name: Shuttle Deploy
-
-on:
+name: shuttle-deploy
+on: 
   push:
-    branches:
-      - main
-  workflow_dispatch:
+    branches: [ "add-github-action" ]
+  pull_request:
+    branches: [ "add-github-action" ]
 
 jobs:
-  deploy:
+  deploy-project:
     runs-on: ubuntu-latest
     steps:
-      - uses: shuttle-hq/deploy-action@main
+      - name: Checkout
+        uses: actions/checkout@v4.1.1
+
+      - name: Setup Rust
+        uses: ATiltedTree/setup-rust@v1.0.5
         with:
-          deploy-key: ${{ secrets.SHUTTLE_API_KEY }}
-          working-directory: "."
-          name: "murali"
-          cargo-shuttle-version: "0.35.1"
-          secrets: |
-            API_KEY = '${{ secrets.API_KEY }}'
-            DISCORD_TOKEN = '${{ secrets.DISCORD_TOKEN }}'
-            SA_CREDENTIALS_PATH = '${{ secrets.SA_CREDENTIALS_PATH }}'
-            SPREADSHEET_ID = '${{ secrets.SPREADSHEET_UD }}'
+          rust-version: stable
+
+      - name: Install binstall
+        uses: cargo-bins/cargo-binstall@main
+
+      - name: Install shuttle
+        run: cargo binstall -y cargo-shuttle

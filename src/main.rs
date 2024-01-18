@@ -59,6 +59,7 @@ fn get_member_record(key: &str) -> Result<Option<StringRecord>, errors::GetRecor
 #[poise::command(slash_command)]
 async fn att(ctx: Context<'_>, seat_number: u32, mut time_in: Option<String>, mut time_out: Option<String>) -> Result<(), Error> {
     let spreadsheet_id = ctx.data().secret_store.get("SPREADSHEET_ID").expect("SPREADSHEET");
+    print!("success");
     // Log sucess
     let author = ctx.author().name.to_string();
 

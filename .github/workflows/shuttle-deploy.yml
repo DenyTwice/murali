@@ -1,9 +1,9 @@
 name: shuttle-deploy
 on: 
   push:
-    branches: [ "add-github-action" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "add-github-action" ]
+    branches: [ "main" ]
 
 jobs:
   deploy-project:

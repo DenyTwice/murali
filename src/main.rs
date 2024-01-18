@@ -153,6 +153,7 @@ async fn att(ctx: Context<'_>, seat_number: u32, mut time_in: Option<String>, mu
 
 #[shuttle_runtime::main]
 async fn main(#[shuttle_secrets::Secrets] secret_store: SecretStore) -> ShuttlePoise<Data, Error>{
+    print!("success in main start");
     let framework_options = poise::FrameworkOptions {
             commands: vec![att()],
             ..Default::default()
@@ -176,6 +177,7 @@ async fn main(#[shuttle_secrets::Secrets] secret_store: SecretStore) -> ShuttleP
         .map_err(shuttle_runtime::CustomError::new)?;
     // Log sucess in building
     // framework.run().await.unwrap();
+    print!("success in main start 2");
     Ok(framework.into())
 }
 

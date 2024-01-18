@@ -133,7 +133,7 @@ async fn append_values_to_sheet(spreadsheet_id: &str, hub: SheetsHub, value_rang
 // Ok<Some> if member data found, Ok<None> otherwise
 // Err() if failed in execution
 fn get_member_record(key: &str) -> Result<Option<StringRecord>, errors::GetRecordError> {
-    let file = File::open("secrets/MemberData.csv")?;
+    let file = File::open("./MemberData.csv")?;
     let mut rdr = ReaderBuilder::new().from_reader(file);
     let csv_iter = rdr.records();
 

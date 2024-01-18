@@ -12,4 +12,8 @@ jobs:
       - name: Custom shuttle deploy action
         uses: denytwice/shuttle-deploy@v0.5-alpha
         with:
-          deploy-key: "test"
+          deploy-key: ${{ secrets.SHUTTLE_API_KEY }}
+          secrets: |
+            DISCORD_TOKEN = '${{ secrets.DISCORD_TOKEN }}'
+            SA_CREDENTIALS_PATH = '${{ secrets.SA_CREDENTIALS_PATH }}'
+            SPREADSHEET_ID = '${{ secrets.SPREADSHEET_ID }}'

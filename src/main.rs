@@ -1,12 +1,10 @@
 mod errors;
 mod sheets;
-
-use std::fs::File;
+mod file;
 
 // Third Party Crates
 use google_sheets4::api::ValueRange;
 use poise::serenity_prelude as serenity;
-use csv::{ReaderBuilder, StringRecord};
 
 // Shuttle Deployment
 use shuttle_secrets::SecretStore;
@@ -25,51 +23,22 @@ type Error = Box<dyn std::error::Error + Send + Sync>;
 // and has methods implemented on it that performs actions such as sending a message
 type Context<'a> = poise::Context<'a, Data, Error>;
 
-// Uses predefined CSV to find data about member from their discord username which is passed in as key
-// Returns:
-// Ok<Some> if member data found, Ok<None> otherwise
-// Err() if failed in execution
-fn get_member_record(key: &str) -> Result<Option<StringRecord>, errors::GetRecordError> {
-    let file = File::open("MemberData.csv")?;
-    // Log success in opening file
-    let mut rdr = ReaderBuilder::new()
-        .has_headers(false)
-        .from_reader(file);
-    let csv_iter = rdr.records();
 
-    for item in csv_iter {
-        if let Ok(record) = item { 
-            // Failing this is a item of incorrectly set CSV file.
-            let user_name = record.get(0).expect("Members data must be set");
-            // Log failing to get record
-            if user_name == key {
-                // Log success in finding record
-                return Ok(Some(record));
-            }
-        } else if let Err(e) = item {
-            // Replace with logger
-            println!("Could not read record");
-            return Err(errors::GetRecordError::CSVError(e));
-        }
-    };
-
-    Ok(None)
-}
 
 #[poise::command(slash_command)]
 async fn att(ctx: Context<'_>, seat_number: u32, mut time_in: Option<String>, mut time_out: Option<String>) -> Result<(), Error> {
-    let spreadsheet_id = ctx.data().secret_store.get("SPREADSHEET_ID").expect("SPREADSHEET");
-    print!("success");
-    // Log sucess
+    let spreadsheet_id = ctx.data().secret_store.get("SPREADSHEET_ID").expect("Spreadsheet ID must be set in environment.");
+    // TODO Log sucess
     let author = ctx.author().name.to_string();
 
     // Getting member data and appending to sheet might cause interaction
     // to timeout so defer holds the interaction alive long enough.
     ctx.defer().await?;
-    // Log await failure
+    // TODO Log await failure
     
     // Maybe extract this into another function for readability
-    match get_member_record(author.as_str()) {
+
+    match file::get_member_record(author.as_str()) {
         Ok(record_option) => {
 
             if let Some(record) = record_option {
@@ -147,7 +116,6 @@ async fn att(ctx: Context<'_>, seat_number: u32, mut time_in: Option<String>, mu
             return Ok(());
         }
     };
-
     Ok(())
 }
 

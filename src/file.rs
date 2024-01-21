@@ -1,31 +1,48 @@
 use crate::errors;
-use std::fs::File;
-use csv::{ReaderBuilder, StringRecord};
 
-// Uses predefined CSV to find data about member from their discord username which is passed in as key
-// Returns:
-// Ok<Some> if member data found, Ok<None> otherwise
-// Err() if failed in execution
-pub fn get_member_record(key: &str) -> Result<Option<StringRecord>, errors::GetRecordError> {
+use std::fs::File;
+use csv::ReaderBuilder;
+
+/// Exists primarily to make function headers contain less arguments
+pub struct MemberData {
+    pub name: String,
+    pub gender: String,
+    pub roll_number: String
+}
+
+/**
+ * @brief    Searches predefined CSV to find real name, roll number and gender of a person with
+ *           their discord username as the key.
+ *
+ * @return   Ok<Some> if member data found 
+ *           Ok<None> if 
+ *           Err() if failed in execution 
+ */
+pub fn get_member_data(key: &str) -> Result<Option<MemberData>, errors::GetRecordError> 
+{
+    const RECORD_GET_EXPECT_MESSAGE: &str = "Members data must be set";
+
     let file = File::open("MemberData.csv")?;
-    // Log success in opening file
     let mut rdr = ReaderBuilder::new()
         .has_headers(false)
         .from_reader(file);
-    let csv_iter = rdr.records();
 
+    let csv_iter = rdr.records();
     for item in csv_iter {
         if let Ok(record) = item { 
-            // Failing this is a item of incorrectly set CSV file.
-            let user_name = record.get(0).expect("Members data must be set");
-            // Log failing to get record
+            let user_name = record.get(0).expect(RECORD_GET_EXPECT_MESSAGE);
+
             if user_name == key {
-                // Log success in finding record
-                return Ok(Some(record));
+                return Ok(Some(
+                        MemberData {
+                            name: record.get(1).expect(RECORD_GET_EXPECT_MESSAGE).to_owned(),
+                            gender: record.get(3).expect(RECORD_GET_EXPECT_MESSAGE).to_owned(),
+                            roll_number: record.get(2).expect(RECORD_GET_EXPECT_MESSAGE).to_owned()
+                        }
+                        ));
             }
+
         } else if let Err(e) = item {
-            // Replace with logger
-            println!("Could not read record");
             return Err(crate::errors::GetRecordError::CSVError(e));
         }
     };

@@ -1,46 +1,51 @@
-use crate::errors; 
+use crate::errors;
+use crate::file::MemberData; 
 
 use std::path::PathBuf;
 use std::env;
-
 use shuttle_secrets::SecretStore;
 use google_sheets4::api::ValueRange;
 use google_sheets4::{self, Sheets};
 use serde_json::Value;
 
-// Represents a row in the excel sheet
-#[derive(Copy, Clone)]
-pub struct Row<'a>{
-    pub serial_number: usize,
-    pub name: &'a str,
-    pub roll_number: &'a str,
+/// Represents a row/field in the excel sheet
+#[derive(Clone)]
+pub struct Row {
+    pub serial_number: u32,
+    pub name: String,
+    pub roll_number: String,
     pub seat_number: u32,
-    pub time_in: &'a str,
-    pub time_out: &'a str,
+    pub time_in: String,
+    pub time_out: String,
 }
 
-impl<'a> Row<'a> {
-    // FEATURE: Convert to Discord Embed
-    pub fn pretty_print(&self) -> String {
-        let message = format!("Appended data:\nSerial Number: {}\tName: {}\tRoll Number: {}\t
-                              \t\tSeat Number: {}\tTime In: {}\t Time Out: {}\t", 
+impl Row {
+    pub fn pretty_print(&self) -> String 
+    {
+        let message = format!("Appended data:\n{}. {}\t{}\t{}\t{}\t{}", 
                               self.serial_number, self.name, self.roll_number, self.seat_number, self.time_in, self.time_out);
         return message;
     }
 }
 
-impl<'a> From<Row<'a>> for ValueRange {
-    fn from(value: Row) -> Self {
-
+/// ValueRange is the accepted type for inserting data into the sheet.
+impl From<Row> for ValueRange {
+    fn from(value: Row) -> Self 
+    {
         let values = Some(vec![vec![
                           Value::String(value.serial_number.to_string()),
-                          Value::String(value.name.to_owned()),
-                          Value::String(value.roll_number.to_owned()),
+                          Value::String(value.name),
+                          Value::String(value.roll_number),
                           Value::String(value.seat_number.to_string()),
-                          Value::String(value.time_in.to_owned()),
-                          Value::String(value.time_out.to_owned())
+                          Value::String(value.time_in),
+                          Value::String(value.time_out)
         ]]);
-        let date = format!("{}", chrono::Local::now().with_timezone(&chrono_tz::Asia::Kolkata).format("%e %b"));
+
+        let date = format!("{}", chrono::Local::now()
+                           .with_timezone(&chrono_tz::Asia::Kolkata)
+                           .format("%e %b")
+                          );
+
         let range = format!("{}!1:50", date.trim());
 
         ValueRange { 
@@ -51,29 +56,31 @@ impl<'a> From<Row<'a>> for ValueRange {
     }
 }
 
-// Central object to maintan state and access Google Sheets API
+/// Central object to maintan state and access Google Sheets API
 pub type SheetsHub = Sheets<hyper_rustls::HttpsConnector<yup_oauth2::hyper::client::HttpConnector>>;
 
-// Builds SheetsHub from SERVICE_ACCOUNT_CREDENTIALS through HTTPConnector
-pub async fn build_hub(secret_store: &SecretStore) -> Result<SheetsHub, errors::BuildHubError> {
-    // !WARNING: Do not expose sa_credentials
-    let sa_credentials_path = secret_store.get("SA_CREDENTIALS_PATH").expect("SA_CREDENTIALS_PATH must be set");
-    // Log sucess
-    // Get path to service_account_credentials.json
+/**
+ * @brief   Builds SheetsHub from SERVICE_ACCOUNT_CREDENTIALS through HTTPConnector
+ *
+ * @return  Ok<SheetHub>
+ *          Err<BuildHubError>, if it fails in execution
+ */
+pub async fn build_hub(secret_store: &SecretStore) -> Result<SheetsHub, errors::BuildHubError> 
+{
+    let sa_credentials_path = secret_store.get("SA_CREDENTIALS_PATH")
+        .expect("SA_CREDENTIALS_PATH must be set");
+
     let mut path = PathBuf::new();
     path.push(env::current_dir()?);
     path.push(sa_credentials_path);
 
-    // Auth using SA CREDENTIALS
     let sa_credentials = yup_oauth2::read_service_account_key(path)
         .await?;
-    // Log sucess
+
     let auth = yup_oauth2::ServiceAccountAuthenticator::builder(sa_credentials)
         .build()
         .await?;
-    // Log sucess
 
-    // Build google_sheets client through HttpConnector
     let hyper_client_builder = &google_sheets4::hyper::Client::builder();
     let http_connector_builder = hyper_rustls::HttpsConnectorBuilder::new();
     let http_connector_builder_options = http_connector_builder
@@ -81,38 +88,99 @@ pub async fn build_hub(secret_store: &SecretStore) -> Result<SheetsHub, errors::
         .https_or_http()
         .enable_http1()
         .build();
-    // Log sucess
 
     Ok(Sheets::new(hyper_client_builder.build(http_connector_builder_options), auth))
 }
 
-// This function should return the serial number to be added in the latest append
-pub async fn get_next_empty_row(secret_store: &SecretStore, range: &str, spreadsheet_id: &str) -> Option<usize> {
-    // CAUTION: Should handle this error safely
-    let hub = build_hub(secret_store).await.unwrap();
-    // Log
-    let response = hub.spreadsheets().values_get(spreadsheet_id, range).doit().await.unwrap();
-    // Log
+/** 
+ * @brief   Gets the length of the array of fields in the attendance sheet returned from the API.
+ *
+ * @return  Number of rows that have data.
+ */ 
+pub async fn compute_next_serial_num(hub: &SheetsHub, spreadsheet_id: &str) -> Option<u32> 
+{
+    let date = format!("{}", chrono::Local::now()
+                       .with_timezone(&chrono_tz::Asia::Kolkata)
+                       .format("%e %b"));
+
+    let range = format!("{}!1:50", date.trim());
+    let response = hub.spreadsheets()
+        .values_get(spreadsheet_id, range.as_str())
+        .doit()
+        .await
+        .unwrap();
+
     let values = response.1;
     if let Some(rows) = values.values {
-        return Some(rows.len());
+        return Some(rows.len().try_into().unwrap());
     }
+
     None
 }
 
-pub async fn append_values_to_sheet(spreadsheet_id: &str, hub: SheetsHub, value_range: ValueRange) -> Result<(), ()>{
-    let range = value_range.range.clone().unwrap();
-    let result = hub.spreadsheets().values_append(value_range, spreadsheet_id, range.as_str())
+/**
+ * @brief   Appends the data within ValueRange to the excel sheet.
+ *
+ * @return  Ok(())
+ *          Err(())
+ */
+pub async fn insert_entry(
+    spreadsheet_id: &str, 
+    hub: SheetsHub, 
+    value_range: ValueRange
+    ) -> Result<(), ()> 
+{
+    let range = value_range.range
+        .clone()
+        .unwrap();
+
+    let result = hub.spreadsheets()
+        .values_append(value_range, spreadsheet_id, range.as_str())
         .value_input_option("USER_ENTERED")
         .doit()
         .await;
-    // Log
+
     match result {
         Ok(_) => return Ok(()),
-        Err(e) => {
-            eprintln!("Error: {:?}", e);
-            return Err(());
+        Err(_) => return Err(()),
+    }
+}
+
+pub fn construct_input_data(
+    serial_number: u32, 
+    member_data: MemberData, 
+    seat_number: u32, 
+    mut time_in: Option<String>, 
+    mut time_out: Option<String>
+    ) -> Row 
+{
+    // If time_in is not specified, set it to the current time
+    if let None = time_in {
+        time_in = Some(chrono::Local::now()
+                       .with_timezone(&chrono_tz::Asia::Kolkata)
+                       .format("%H:%M")
+                       .to_string());
+    }
+
+    // If time_out is not specified, set it to 22:45 or 21:00 depending on whether
+    // the author is male or female
+    if let None = time_out {
+        if member_data.gender == "M" {
+            time_out = Some(String::from("22:00"));
+        } else {
+            time_out = Some(String::from("21:00"));
         }
     }
-    // Log
+
+    let time_in = time_in.unwrap();
+    let time_out = time_out.unwrap();
+
+    Row {
+        serial_number,
+        name: member_data.name,
+        roll_number: member_data.roll_number,
+        seat_number,
+        time_in,
+        time_out
+    }
 }

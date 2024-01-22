@@ -56,6 +56,8 @@ pub fn set_time(time_in_opt: Option<String>, time_out_opt: Option<String>, gende
 
     if let None = time_in_opt {
         time_in.push_str("17:30");
+    } else {
+        time_in.push_str(time_in_opt.unwrap().as_str());
     }
 
     if let None = time_out_opt {
@@ -64,6 +66,8 @@ pub fn set_time(time_in_opt: Option<String>, time_out_opt: Option<String>, gende
         } else {
             time_out.push_str("21:00");
         }
+    } else {
+        time_out.push_str(time_out_opt.unwrap().as_str());
     }
 
     (time_in, time_out)

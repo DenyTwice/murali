@@ -22,7 +22,7 @@ type Context<'a> = poise::Context<'a, Data, Error>;
 #[poise::command(slash_command)]
 async fn att(
     ctx: Context<'_>, 
-    seat_number: u32, 
+    seat_number: Option<String>, 
     time_in: Option<String>, 
     time_out: Option<String>
     ) -> Result<(), Error> 

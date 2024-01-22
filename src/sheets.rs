@@ -18,7 +18,7 @@ pub struct Row {
     pub serial_number: u32,
     pub name: String,
     pub roll_number: String,
-    pub seat_number: u32,
+    pub seat_number: String,
     pub time_in: String,
     pub time_out: String,
 }
@@ -150,7 +150,7 @@ pub async fn insert_entry(
 pub fn construct_input_data(
     serial_number: u32, 
     member_data: MemberData, 
-    seat_number: u32, 
+    mut seat_number: Option<String>, 
     time_in: Option<String>, 
     time_out: Option<String>
     ) -> Row 
@@ -158,11 +158,15 @@ pub fn construct_input_data(
 
     let (time_in, time_out) = misc::set_time(time_in, time_out, member_data.gender);
 
+    if let None = seat_number {
+        seat_number = Some(String::from(""));
+    }
+
     Row {
         serial_number,
         name: member_data.name,
         roll_number: member_data.roll_number,
-        seat_number,
+        seat_number: seat_number.unwrap(),
         time_in,
         time_out
     }

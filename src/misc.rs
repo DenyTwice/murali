@@ -22,7 +22,7 @@ pub fn get_member_data(key: &str) -> Result<Option<MemberData>, errors::GetRecor
 {
     const RECORD_GET_EXPECT_MESSAGE: &str = "Members data must be set";
 
-    let file = File::open("MemberData.csv")?;
+    let file = File::open("secrets/MemberData.csv")?;
     let mut rdr = ReaderBuilder::new()
         .has_headers(false)
         .from_reader(file);
@@ -48,4 +48,23 @@ pub fn get_member_data(key: &str) -> Result<Option<MemberData>, errors::GetRecor
     };
 
     Ok(None)
+}
+
+pub fn set_time(time_in_opt: Option<String>, time_out_opt: Option<String>, gender: String) -> (String, String) {
+    let mut time_in = String::new();
+    let mut time_out = String::new();
+
+    if let None = time_in_opt {
+        time_in.push_str("17:30");
+    }
+
+    if let None = time_out_opt {
+        if gender == "M" {
+            time_out.push_str("22:00");
+        } else {
+            time_out.push_str("21:00");
+        }
+    }
+
+    (time_in, time_out)
 }

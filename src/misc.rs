@@ -49,3 +49,22 @@ pub fn get_member_data(key: &str) -> Result<Option<MemberData>, errors::GetRecor
 
     Ok(None)
 }
+
+pub fn set_time(time_in_opt: Option<String>, time_out_opt: Option<String>, gender: String) -> (String, String) {
+    let mut time_in = String::new();
+    let mut time_out = String::new();
+
+    if let None = time_in_opt {
+        time_in.push_str("17:30");
+    }
+
+    if let None = time_out_opt {
+        if gender == "M" {
+            time_out.push_str("22:00");
+        } else {
+            time_out.push_str("21:00");
+        }
+    }
+
+    (time_in, time_out)
+}

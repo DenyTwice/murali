@@ -1,5 +1,6 @@
 use crate::errors;
-use crate::file::MemberData; 
+use crate::misc;
+use crate::misc::MemberData; 
 
 use std::path::PathBuf;
 use std::env;
@@ -7,6 +8,9 @@ use shuttle_secrets::SecretStore;
 use google_sheets4::api::ValueRange;
 use google_sheets4::{self, Sheets};
 use serde_json::Value;
+
+/// Central object to maintan state and access Google Sheets API
+pub type SheetsHub = Sheets<hyper_rustls::HttpsConnector<yup_oauth2::hyper::client::HttpConnector>>;
 
 /// Represents a row/field in the excel sheet
 #[derive(Clone)]
@@ -55,9 +59,6 @@ impl From<Row> for ValueRange {
         }
     }
 }
-
-/// Central object to maintan state and access Google Sheets API
-pub type SheetsHub = Sheets<hyper_rustls::HttpsConnector<yup_oauth2::hyper::client::HttpConnector>>;
 
 /**
  * @brief   Builds SheetsHub from SERVICE_ACCOUNT_CREDENTIALS through HTTPConnector
@@ -150,30 +151,12 @@ pub fn construct_input_data(
     serial_number: u32, 
     member_data: MemberData, 
     seat_number: u32, 
-    mut time_in: Option<String>, 
-    mut time_out: Option<String>
+    time_in: Option<String>, 
+    time_out: Option<String>
     ) -> Row 
 {
-    // If time_in is not specified, set it to the current time
-    if let None = time_in {
-        time_in = Some(chrono::Local::now()
-                       .with_timezone(&chrono_tz::Asia::Kolkata)
-                       .format("%H:%M")
-                       .to_string());
-    }
 
-    // If time_out is not specified, set it to 22:45 or 21:00 depending on whether
-    // the author is male or female
-    if let None = time_out {
-        if member_data.gender == "M" {
-            time_out = Some(String::from("22:00"));
-        } else {
-            time_out = Some(String::from("21:00"));
-        }
-    }
-
-    let time_in = time_in.unwrap();
-    let time_out = time_out.unwrap();
+    let (time_in, time_out) = misc::set_time(time_in, time_out, member_data.gender);
 
     Row {
         serial_number,

@@ -1,6 +1,6 @@
 mod errors;
 mod sheets;
-mod file;
+mod misc;
 
 use errors::Error;
 use google_sheets4::api::ValueRange;
@@ -13,7 +13,7 @@ struct Data {
 } 
 
 /** 
- * Context holds most of the runtime information such as the user which invoked a command 
+ * Context holds most of the runtime information such as the user who invoked a command,
  * and has methods implemented on it that performs actions such as sending a message. 
  */
 type Context<'a> = poise::Context<'a, Data, Error>;
@@ -36,7 +36,7 @@ async fn att(
         .expect("Spreadsheet ID must be set."); 
 
     // Gets name, gender and roll number
-    let member_data = match file::get_member_data(&author) {
+    let member_data = match misc::get_member_data(&author) {
         Ok(Some(data)) => data,
         Ok(None) => {
             let data_not_found_message = format!("No data was found for {}.", author);
@@ -75,18 +75,28 @@ async fn att(
     };
 
     let serial_num = match sheets::compute_next_serial_num(&hub, spreadsheet_id.as_str()).await {
-        Some(d) => d.try_into().unwrap(),
-        None => todo!(),
+        Some(num) => num.try_into()?,
+        None => {
+            const COMPUTE_FAIL_MESSAGE: &str = "Failed to get serial number";
+            ctx.reply(COMPUTE_FAIL_MESSAGE).await?;
+
+            return Ok(());
+        },
     };
 
     let sheet_input = sheets::construct_input_data(serial_num, member_data, seat_number, time_in, time_out);
     
     match sheets::insert_entry(spreadsheet_id.as_str(), hub, ValueRange::from(sheet_input)).await {
-        Ok(_) => {
-            ctx.reply("Well done you sly fuckeroo").await.unwrap();
+        Ok(()) => {
+            ctx.reply("Okay.").await?;
             return Ok(());
         },
-        Err(_) => todo!(),
+        Err(_) => {
+            const INSERTION_ERROR_MESSAGE: &str = "Failed to insert field.";
+            ctx.reply(INSERTION_ERROR_MESSAGE).await?;
+
+            return Ok(());
+        }
     }
     
 }

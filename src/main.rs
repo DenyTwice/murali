@@ -59,8 +59,19 @@ async fn att(
     };
     
     let hub = match sheets::build_hub(&ctx.data().secret_store).await {
-        Ok(d) => d,
-        Err(_) => todo!(),
+        Ok(hub) => hub,
+        Err(errors::BuildHubError::VarError(_)) => {
+            const VAR_ERROR_MESSAGE: &str = "Failed to validate credentials";
+            ctx.reply(VAR_ERROR_MESSAGE).await?;
+
+            return Ok(())
+        },
+        Err(errors::BuildHubError::IOError(_)) => {
+            const IO_ERROR_MESSAGE: &str = "Failed to read SA-C file."; 
+            ctx.reply(IO_ERROR_MESSAGE).await?;
+
+            return Ok(());
+        },
     };
 
     let serial_num = match sheets::compute_next_serial_num(&hub, spreadsheet_id.as_str()).await {

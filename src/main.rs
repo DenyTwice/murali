@@ -5,8 +5,8 @@ mod file;
 use errors::Error;
 use google_sheets4::api::ValueRange;
 use poise::serenity_prelude as serenity;
-use shuttle_secrets::SecretStore;
 use shuttle_poise::ShuttlePoise;
+use shuttle_secrets::SecretStore;
 
 struct Data {
     secret_store: SecretStore,
@@ -18,7 +18,7 @@ struct Data {
  */
 type Context<'a> = poise::Context<'a, Data, Error>;
 
-/// Command to add author's entry to the sheet.
+/// Command to add an entry for the author to the attendance sheet.
 #[poise::command(slash_command)]
 async fn att(
     ctx: Context<'_>, 
@@ -37,9 +37,25 @@ async fn att(
 
     // Gets name, gender and roll number
     let member_data = match file::get_member_data(&author) {
-        Ok(Some(d)) => d,
-        Ok(None) => todo!(),
-        Err(_) => todo!(),
+        Ok(Some(data)) => data,
+        Ok(None) => {
+            let data_not_found_message = format!("No data was found for {}.", author);
+            ctx.reply(data_not_found_message).await?;
+
+            return Ok(());
+        },
+        Err(errors::GetRecordError::CSVError(_)) => {
+            const CSV_ERROR_MESSAGE: &str = "Failed to read CSV records.";
+            ctx.reply(CSV_ERROR_MESSAGE).await?;
+
+            return Ok(());
+        },
+        Err(errors::GetRecordError::IOError(_)) => {
+            const IO_ERROR_MESSAGE: &str = "Failed to open file MemberData.csv.";
+            ctx.reply(IO_ERROR_MESSAGE).await?;
+
+            return Ok(());
+        },
     };
     
     let hub = match sheets::build_hub(&ctx.data().secret_store).await {
@@ -72,7 +88,6 @@ async fn main(#[shuttle_secrets::Secrets] secret_store: SecretStore) -> ShuttleP
     };
 
     let token = secret_store.get("DISCORD_TOKEN").expect("Discord Token must be set"); 
-
     let framework = poise::Framework::builder()
         .options(framework_options)
         .token(token)

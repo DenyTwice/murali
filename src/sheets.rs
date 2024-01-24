@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use std::env;
 use shuttle_secrets::SecretStore;
 use google_sheets4::api::ValueRange;
+// use google_sheets4::api::CopySheetToAnotherSpreadsheetRequest;
 use google_sheets4::{self, Sheets};
 use serde_json::Value;
 
@@ -98,13 +99,18 @@ pub async fn build_hub(secret_store: &SecretStore) -> Result<SheetsHub, errors::
  *
  * @return  Number of rows that have data.
  */ 
-pub async fn compute_next_serial_num(hub: &SheetsHub, spreadsheet_id: &str) -> Option<u32> 
+pub async fn compute_next_serial_num(hub: &SheetsHub, spreadsheet_id: &str, template_id: &str) -> Option<u32> 
 {
     let date = format!("{}", chrono::Local::now()
                        .with_timezone(&chrono_tz::Asia::Kolkata)
                        .format("%e %b"));
 
     let range = format!("{}!1:50", date.trim());
+    
+    if !sheet_exists(hub, spreadsheet_id, &date).await {
+        let _= duplicate_sheet(hub, spreadsheet_id, template_id, &date).await;
+    }
+    
     let response = hub.spreadsheets()
         .values_get(spreadsheet_id, range.as_str())
         .doit()
@@ -118,6 +124,66 @@ pub async fn compute_next_serial_num(hub: &SheetsHub, spreadsheet_id: &str) -> O
 
     None
 }
+
+/**
+ * @brief   Checks if the sheet for the current date exists.
+ *
+ * @return  true, if the sheet exists
+ *          false, otherwise
+ */
+pub async fn sheet_exists(hub: &SheetsHub, spreadsheet_id: &str, date: &str) -> bool
+{
+    let response = hub.spreadsheets()
+        .get(spreadsheet_id)
+        .doit()
+        .await
+        .unwrap();
+
+    let sheets = response.1.sheets.unwrap();
+    for sheet in sheets {
+        if let Some(title) = sheet.properties.as_ref().unwrap().title.as_ref() {
+            if title == date {
+                return true;
+            }
+        }
+    }
+
+    false
+}
+
+/**
+ * @brief   Duplicates the template sheet to a new sheet with the given name.
+ *
+ * @return  Ok(())
+ *          Err(())
+ */
+pub async fn duplicate_sheet(hub: &SheetsHub, spreadsheet_id: &str, template_id: &str, new_sheet_name: &str) -> Result<(), ()> {
+    let request = google_sheets4::api::DuplicateSheetRequest {
+        insert_sheet_index: Some(1),
+        new_sheet_name: Some(new_sheet_name.to_string()),
+        source_sheet_id: Some(template_id.parse().unwrap()),
+        ..Default::default()
+    };
+    
+    let batch_update_request = google_sheets4::api::BatchUpdateSpreadsheetRequest {
+        requests: Some(vec![google_sheets4::api::Request {
+            duplicate_sheet: Some(request),
+            ..Default::default()
+        }]),
+        ..Default::default()
+    };
+
+    let result = hub.spreadsheets().batch_update(batch_update_request, spreadsheet_id)
+        .doit()
+        .await;
+
+    match result {
+        Ok(_) => Ok(()),
+        Err(_) => Err(()),
+    }
+}
+
+
 
 /**
  * @brief   Appends the data within ValueRange to the excel sheet.

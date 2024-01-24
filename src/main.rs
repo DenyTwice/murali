@@ -33,7 +33,11 @@ async fn att(
     let author = ctx.author().name.to_string();
     let spreadsheet_id = ctx.data().secret_store 
         .get("SPREADSHEET_ID") // ID of the attendance sheet. 
-        .expect("Spreadsheet ID must be set."); 
+        .expect("Spreadsheet ID must be set.");
+
+    let template_id = ctx.data().secret_store
+        .get("TEMPLATE_ID") // ID of the template sheet.
+        .expect("Template ID must be set."); 
 
     // Gets name, gender and roll number
     let member_data = match misc::get_member_data(&author) {
@@ -74,7 +78,7 @@ async fn att(
         },
     };
 
-    let serial_num = match sheets::compute_next_serial_num(&hub, spreadsheet_id.as_str()).await {
+    let serial_num = match sheets::compute_next_serial_num(&hub, spreadsheet_id.as_str(), template_id.as_str()).await {
         Some(num) => num.try_into()?,
         None => {
             const COMPUTE_FAIL_MESSAGE: &str = "Failed to get serial number";

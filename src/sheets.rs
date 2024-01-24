@@ -5,7 +5,7 @@ use crate::misc::MemberData;
 use std::path::PathBuf;
 use std::env;
 use shuttle_secrets::SecretStore;
-use google_sheets4::api::ValueRange;
+use google_sheets4::api::{ValueRange, DuplicateSheetRequest, BatchUpdateSpreadsheetRequest, Request};
 use google_sheets4::{self, Sheets};
 use serde_json::Value;
 
@@ -157,15 +157,15 @@ pub async fn sheet_exists(hub: &SheetsHub, spreadsheet_id: &str, date: &str) -> 
  *          Err(())
  */
 pub async fn duplicate_sheet(hub: &SheetsHub, spreadsheet_id: &str, template_id: &str, new_sheet_name: &str) -> Result<(), ()> {
-    let request = google_sheets4::api::DuplicateSheetRequest {
+    let request = DuplicateSheetRequest {
         insert_sheet_index: Some(1),
         new_sheet_name: Some(new_sheet_name.to_string()),
         source_sheet_id: Some(template_id.parse().unwrap()),
         ..Default::default()
     };
     
-    let batch_update_request = google_sheets4::api::BatchUpdateSpreadsheetRequest {
-        requests: Some(vec![google_sheets4::api::Request {
+    let batch_update_request = BatchUpdateSpreadsheetRequest {
+        requests: Some(vec![    Request {
             duplicate_sheet: Some(request),
             ..Default::default()
         }]),

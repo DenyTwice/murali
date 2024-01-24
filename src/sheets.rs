@@ -6,7 +6,6 @@ use std::path::PathBuf;
 use std::env;
 use shuttle_secrets::SecretStore;
 use google_sheets4::api::ValueRange;
-// use google_sheets4::api::CopySheetToAnotherSpreadsheetRequest;
 use google_sheets4::{self, Sheets};
 use serde_json::Value;
 

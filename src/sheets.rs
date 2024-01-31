@@ -5,7 +5,7 @@ use crate::misc::MemberData;
 use std::path::PathBuf;
 use std::env;
 use shuttle_secrets::SecretStore;
-use google_sheets4::api::ValueRange;
+use google_sheets4::api::{ValueRange, DuplicateSheetRequest, BatchUpdateSpreadsheetRequest, Request};
 use google_sheets4::{self, Sheets};
 use serde_json::Value;
 
@@ -98,8 +98,7 @@ pub async fn build_hub(secret_store: &SecretStore) -> Result<SheetsHub, errors::
  *
  * @return  Number of rows that have data.
  */ 
-pub async fn compute_next_serial_num(hub: &SheetsHub, spreadsheet_id: &str) -> Option<u32> 
-{
+pub async fn compute_next_serial_num(hub: &SheetsHub, spreadsheet_id: &str, template_id: &str) -> Option<u32> {
     let date = format!("{}", chrono::Local::now()
                        .with_timezone(&chrono_tz::Asia::Kolkata)
                        .format("%e %b"));
@@ -108,15 +107,62 @@ pub async fn compute_next_serial_num(hub: &SheetsHub, spreadsheet_id: &str) -> O
     let response = hub.spreadsheets()
         .values_get(spreadsheet_id, range.as_str())
         .doit()
-        .await
-        .unwrap();
+        .await;
 
-    let values = response.1;
-    if let Some(rows) = values.values {
-        return Some(rows.len().try_into().unwrap());
+    match response {
+        Ok(response) => {
+            let values = response.1;
+            if let Some(rows) = values.values {
+                return Some(rows.len().try_into().unwrap());
+            }
+        }
+        Err(google_sheets4::Error::BadRequest(status)) => {
+            // Check if the error message contains "Unable to parse range"
+            // If it does, then the sheet for the current date does not exist.
+            let error_message = format!("{:?}", status);
+            if error_message.contains("Unable to parse range") {
+                let _ = duplicate_sheet(hub, spreadsheet_id, template_id, date.as_str()).await.ok()?;
+                return Some(1)
+            }
+        },
+        Err(e) => {
+            eprintln!("Error: {:?}", e);
+        }
     }
-
     None
+}
+
+
+/**
+ * @brief   Duplicates the template sheet to a new sheet with the given name.
+ *
+ * @return  Ok(())
+ *          Err(())
+ */
+pub async fn duplicate_sheet(hub: &SheetsHub, spreadsheet_id: &str, template_id: &str, new_sheet_name: &str) -> Result<(), ()> {
+    let request = DuplicateSheetRequest {
+        insert_sheet_index: Some(1),
+        new_sheet_name: Some(new_sheet_name.to_string()),
+        source_sheet_id: Some(template_id.parse().unwrap()),
+        ..Default::default()
+    };
+    
+    let batch_update_request = BatchUpdateSpreadsheetRequest {
+        requests: Some(vec![Request {
+            duplicate_sheet: Some(request),
+            ..Default::default()
+        }]),
+        ..Default::default()
+    };
+
+    let result = hub.spreadsheets().batch_update(batch_update_request, spreadsheet_id)
+        .doit()
+        .await;
+
+    match result {
+        Ok(_) => Ok(()),
+        Err(_) => Err(()),
+    }
 }
 
 /**

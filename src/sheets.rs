@@ -117,31 +117,18 @@ pub async fn compute_next_serial_num(hub: &SheetsHub, spreadsheet_id: &str, temp
             }
         }
         Err(google_sheets4::Error::BadRequest(status)) => {
+            // Check if the error message contains "Unable to parse range"
+            // If it does, then the sheet for the current date does not exist.
             let error_message = format!("{:?}", status);
             if error_message.contains("Unable to parse range") {
-                let _ = duplicate_sheet(hub, spreadsheet_id, template_id, date.as_str()).await;
-
-                let response = hub
-                    .spreadsheets()
-                    .values_get(spreadsheet_id, range.as_str())
-                    .doit()
-                    .await;
-                
-                if let Ok(response) = response {
-                    let values = response.1;
-                    if let Some(rows) = values.values {
-                        return Some(rows.len().try_into().unwrap());
-                    }
-                }
-            } else {
-                eprintln!("Error: {:?}", status);
+                let _ = duplicate_sheet(hub, spreadsheet_id, template_id, date.as_str()).await.ok()?;
+                return Some(1)
             }
-        }
+        },
         Err(e) => {
-            eprintln!("Unknown error occurred: {:?}", e);
+            eprintln!("Error: {:?}", e);
         }
     }
-
     None
 }
 

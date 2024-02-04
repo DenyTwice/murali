@@ -121,12 +121,12 @@ pub async fn compute_next_serial_num(hub: &SheetsHub, spreadsheet_id: &str, temp
             // If it does, then the sheet for the current date does not exist.
             let error_message = format!("{:?}", status);
             if error_message.contains("Unable to parse range") {
-                let _ = duplicate_sheet(hub, spreadsheet_id, template_id, date.as_str()).await.ok()?;
+                let _ = duplicate_sheet(hub, spreadsheet_id, template_id, date.trim().as_str()).await.ok()?;
                 return Some(1)
             }
         },
         Err(e) => {
-            eprintln!("Error: {:?}", e);
+            println!("Error: {:?}", e);
         }
     }
     None

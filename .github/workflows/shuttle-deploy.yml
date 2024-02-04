@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Environment Setup
-        run: mkdir secrets && echo ${{ secrets.MEMBER_DATA }} > secrets/MemberData.csv && echo ${{ secrets.SA_CREDENTIALS }} > secrets/sa_credentials.json
+        run: mkdir secrets && echo "${{ secrets.MEMBER_DATA }}" > secrets/MemberData.csv && echo "${{ secrets.SA_CREDENTIALS }}" > secrets/sa_credentials.json
         shell: bash
       - name: Custom shuttle deploy action
         uses: denytwice/shuttle-deploy@v0.7-alpha

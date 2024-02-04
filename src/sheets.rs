@@ -102,8 +102,9 @@ pub async fn compute_next_serial_num(hub: &SheetsHub, spreadsheet_id: &str, temp
     let date = format!("{}", chrono::Local::now()
                        .with_timezone(&chrono_tz::Asia::Kolkata)
                        .format("%e %b"));
+    let trimmed_date = date.trim();
 
-    let range = format!("{}!1:50", date.trim());
+    let range = format!("{}!1:50", trimmed_date);
     let response = hub.spreadsheets()
         .values_get(spreadsheet_id, range.as_str())
         .doit()
@@ -121,7 +122,7 @@ pub async fn compute_next_serial_num(hub: &SheetsHub, spreadsheet_id: &str, temp
             // If it does, then the sheet for the current date does not exist.
             let error_message = format!("{:?}", status);
             if error_message.contains("Unable to parse range") {
-                let _ = duplicate_sheet(hub, spreadsheet_id, template_id, date.trim().as_str()).await.ok()?;
+                let _ = duplicate_sheet(hub, spreadsheet_id, template_id, trimmed_date).await.ok()?;
                 return Some(1)
             }
         },

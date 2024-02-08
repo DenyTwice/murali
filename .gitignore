@@ -4,10 +4,7 @@ target/
 Cargo.lock
 
 # Secrets
-.env
 secrets/
 
 # Shuttle
-.shuttle-storage
-Secrets*.toml
-.ignore
+Secrets.toml

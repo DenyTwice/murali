@@ -4,15 +4,18 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+
 # Shuttle Deployment
 shuttle-serenity = "0.36.0"
 shuttle-runtime = "0.36.0"
 shuttle-poise = "0.36.0"
 shuttle-secrets = "0.36.0"
+
 # Discord API and Bot 
 serenity = { version = "0.11.5", default-features = false, features = ["client", "gateway", "rustls_backend", "model"] }
 poise = "0.5.7"
 
+# Google Sheets API
 yup-oauth2 = "8.3.0"
 google-sheets4 = "5.0.3"
 

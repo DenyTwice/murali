@@ -68,8 +68,7 @@ impl From<Row> for ValueRange {
  */
 pub async fn build_hub(secret_store: &SecretStore) -> Result<SheetsHub, errors::BuildHubError> 
 {
-    let sa_credentials_path = secret_store.get("SA_CREDENTIALS_PATH")
-        .expect("SA_CREDENTIALS_PATH must be set");
+    let sa_credentials_path = String::from("secrets/sa_credentials.json");
 
     let mut path = PathBuf::new();
     path.push(env::current_dir()?);

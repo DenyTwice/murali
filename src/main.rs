@@ -35,9 +35,7 @@ async fn att(
         .get("SPREADSHEET_ID") // ID of the attendance sheet. 
         .expect("Spreadsheet ID must be set.");
 
-    let template_id = ctx.data().secret_store
-        .get("TEMPLATE_ID") // ID of the template sheet.
-        .expect("Template ID must be set."); 
+    let template_id = String::from("0");
 
     // Gets name, gender and roll number
     let member_data = match misc::get_member_data(&author) {

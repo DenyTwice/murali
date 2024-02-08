@@ -21,14 +21,10 @@ token to your Secrets.toml as "DISCORD_TOKEN".
 - Spreadsheet ID: The ID of the spreadsheet used for attendance. You can get the ID from the spreadsheet's URL. Add the ID 
 to Secrets.toml as "SPREADSHEET_ID". 
 
-- Template ID: The ID for the template sheet. Again, available from the URL. This is the sheet that will be duplicated if the bot does
-not find a sheet made for the day (sheets are named after the day they correspond to). Add the ID to Secrets.toml as "TEMPLATE_ID". 
-
 The final Secrets.toml file should resemble:
 ```
 DISCORD_TOKEN="placeholdertoken"
 SPREADSHEET_ID="placeholdertoken"
-TEMPLATE_ID="placeholdertoken"
 ```
 
 # Running

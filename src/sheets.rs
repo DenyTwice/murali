@@ -72,7 +72,7 @@ pub async fn build_hub() -> Result<SheetsHub, errors::BuildHubError>
 
     let mut path = PathBuf::new();
     path.push(env::current_dir()?);
-    print("TESTESTETETASPODJHASIDHAOS D{HAIOUD{OAND{OASNO{ASO{VASUDVOASUVD{OSANVDAOSNVD{OASNvd");
+    print!("TESTESTETETASPODJHASIDHAOS D{HAIOUD{OAND{OASNO{ASO{VASUDVOASUVD{OSANVDAOSNVD{OASNvd");
     path.push(sa_credentials_path);
 
     let sa_credentials = yup_oauth2::read_service_account_key(path)

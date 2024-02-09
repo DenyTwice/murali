@@ -68,7 +68,7 @@ impl From<Row> for ValueRange {
  */
 pub async fn build_hub(secret_store: &SecretStore) -> Result<SheetsHub, errors::BuildHubError> 
 {
-    let sa_credentials_path = String::from("secrets/sa_credentials.json");
+    let sa_credentials_path = PathBuf::from("secrets/sa_credentials.json");
 
     let mut path = PathBuf::new();
     path.push(env::current_dir()?);

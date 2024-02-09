@@ -60,7 +60,7 @@ async fn att(
         },
     };
     
-    let hub = match sheets::build_hub(&ctx.data().secret_store).await {
+    let hub = match sheets::build_hub().await {
         Ok(hub) => hub,
         Err(errors::BuildHubError::VarError(_)) => {
             const VAR_ERROR_MESSAGE: &str = "Failed to validate credentials";

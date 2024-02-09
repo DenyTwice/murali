@@ -66,21 +66,22 @@ impl From<Row> for ValueRange {
  * @return  Ok<SheetHub>
  *          Err<BuildHubError>, if it fails in execution
  */
-pub async fn build_hub(secret_store: &SecretStore) -> Result<SheetsHub, errors::BuildHubError> 
+pub async fn build_hub() -> Result<SheetsHub, errors::BuildHubError> 
 {
     let sa_credentials_path = PathBuf::from("secrets/sa_credentials.json");
 
     let mut path = PathBuf::new();
-    path.push(env::current_dir()?);
     path.push(sa_credentials_path);
 
     let sa_credentials = yup_oauth2::read_service_account_key(path)
         .await?;
 
+    print!("it did read");
     let auth = yup_oauth2::ServiceAccountAuthenticator::builder(sa_credentials)
         .build()
         .await?;
 
+    print!("it did read and auth");
     let hyper_client_builder = &google_sheets4::hyper::Client::builder();
     let http_connector_builder = hyper_rustls::HttpsConnectorBuilder::new();
     let http_connector_builder_options = http_connector_builder

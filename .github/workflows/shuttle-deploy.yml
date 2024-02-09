@@ -22,7 +22,7 @@ jobs:
         shell: bash
 
       - name: Custom shuttle deploy action
-        uses: denytwice/shuttle-deploy@v0.8-alpha
+        uses: denytwice/shuttle-deploy@v0.9-alpha
         with:
           deploy-key: ${{ secrets.SHUTTLE_API_KEY }}
           enable-debug-logging: "true"

@@ -9,14 +9,23 @@ jobs:
   deploy-project:
     runs-on: ubuntu-latest
     steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Environment Setup
         run: mkdir secrets && echo "${{ secrets.MEMBER_DATA }}" > secrets/MemberData.csv && echo "${{ secrets.SA_CREDENTIALS }}" > secrets/sa_credentials.json
         shell: bash
+
+      - name: Debug
+        run: ls
+        shell: bash
+
       - name: Custom shuttle deploy action
-        uses: denytwice/shuttle-deploy@v0.7-alpha
+        uses: denytwice/shuttle-deploy@v0.9-alpha
         with:
           deploy-key: ${{ secrets.SHUTTLE_API_KEY }}
+          enable-debug-logging: "true"
           secrets: |
             DISCORD_TOKEN = '${{ secrets.DISCORD_TOKEN }}'
-            SA_CREDENTIALS_PATH = '${{ secrets.SA_CREDENTIALS_PATH }}'
             SPREADSHEET_ID = '${{ secrets.SPREADSHEET_ID }}'

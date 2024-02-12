@@ -1,15 +1,20 @@
+/*!
+This module contains code that uses the google_sheets4 API to manipulate and update sheets as well as
+any revelant helper code.
+*/
+
 use crate::errors;
 use crate::misc;
 use crate::misc::MemberData; 
 
+use tracing::{span, event, Level};
 use std::path::PathBuf;
 use std::env;
-use shuttle_secrets::SecretStore;
 use google_sheets4::api::{ValueRange, DuplicateSheetRequest, BatchUpdateSpreadsheetRequest, Request};
 use google_sheets4::{self, Sheets};
 use serde_json::Value;
 
-/// Central object to maintan state and access Google Sheets API
+/// Central object to access Google Sheets API
 pub type SheetsHub = Sheets<hyper_rustls::HttpsConnector<yup_oauth2::hyper::client::HttpConnector>>;
 
 /// Represents a row/field in the excel sheet
@@ -23,16 +28,6 @@ pub struct Row {
     pub time_out: String,
 }
 
-impl Row {
-    pub fn pretty_print(&self) -> String 
-    {
-        let message = format!("Appended data:\n{}. {}\t{}\t{}\t{}\t{}", 
-                              self.serial_number, self.name, self.roll_number, self.seat_number, self.time_in, self.time_out);
-        return message;
-    }
-}
-
-/// ValueRange is the accepted type for inserting data into the sheet.
 impl From<Row> for ValueRange {
     fn from(value: Row) -> Self 
     {
@@ -61,26 +56,33 @@ impl From<Row> for ValueRange {
 }
 
 /**
- * @brief   Builds SheetsHub from SERVICE_ACCOUNT_CREDENTIALS through HTTPConnector
- *
- * @return  Ok<SheetHub>
- *          Err<BuildHubError>, if it fails in execution
- */
-pub async fn build_hub(secret_store: &SecretStore) -> Result<SheetsHub, errors::BuildHubError> 
-{
-    let sa_credentials_path = String::from("secrets/sa_credentials.json");
+  Builds `SheetsHub` from `SERVICE_ACCOUNT_CREDENTIALS` through `HTTPConnector`.
 
+  Returns `Ok<SheetHub>` or `Err<BuildHubError>` if it fails in execution.
+*/
+pub async fn build_hub() -> Result<SheetsHub, errors::BuildHubError> 
+{
+    let build_hub_span = span!(Level::TRACE, "span: build_hub");
+    let _build_hub_span = build_hub_span.enter();
+
+    let sa_credentials_path = PathBuf::from("secrets/sa_credentials.json");
+
+    event!(Level::DEBUG, "Creating path to read SA Credentials...");
     let mut path = PathBuf::new();
     path.push(env::current_dir()?);
     path.push(sa_credentials_path);
 
+
+    event!(Level::DEBUG, "Reading service account key...");
     let sa_credentials = yup_oauth2::read_service_account_key(path)
         .await?;
 
+    event!(Level::DEBUG, "Authenticating with SA-C...");
     let auth = yup_oauth2::ServiceAccountAuthenticator::builder(sa_credentials)
         .build()
         .await?;
 
+    event!(Level::DEBUG, "Building http_connector...");
     let hyper_client_builder = &google_sheets4::hyper::Client::builder();
     let http_connector_builder = hyper_rustls::HttpsConnectorBuilder::new();
     let http_connector_builder_options = http_connector_builder
@@ -89,21 +91,27 @@ pub async fn build_hub(secret_store: &SecretStore) -> Result<SheetsHub, errors::
         .enable_http1()
         .build();
 
+    event!(Level::TRACE, "Hub succesfully built. Returning...");
     Ok(Sheets::new(hyper_client_builder.build(http_connector_builder_options), auth))
 }
 
 /** 
- * @brief   Gets the length of the array of fields in the attendance sheet returned from the API.
- *
- * @return  Number of rows that have data.
+  Gets the length of the array of all fields with data in the attendance sheet.
+ 
+  Returns number of rows that have data or None (When?).
  */ 
 pub async fn compute_next_serial_num(hub: &SheetsHub, spreadsheet_id: &str, template_id: &str) -> Option<u32> {
+    let computer_next_serial_num_span = span!(Level::TRACE, "span: compute_next_serial_num");
+    let _computer_next_serial_num_span = computer_next_serial_num_span.enter();
+
     let date = format!("{}", chrono::Local::now()
                        .with_timezone(&chrono_tz::Asia::Kolkata)
                        .format("%e %b"));
     let trimmed_date = date.trim();
+    event!(Level::DEBUG, "Date set to {date}");
 
     let range = format!("{}!1:50", trimmed_date);
+    event!(Level::TRACE, "Getting values from spreadsheet...");
     let response = hub.spreadsheets()
         .values_get(spreadsheet_id, range.as_str())
         .doit()
@@ -111,6 +119,7 @@ pub async fn compute_next_serial_num(hub: &SheetsHub, spreadsheet_id: &str, temp
 
     match response {
         Ok(response) => {
+            event!(Level::TRACE, "Succesful response.");
             let values = response.1;
             if let Some(rows) = values.values {
                 return Some(rows.len().try_into().unwrap());
@@ -118,15 +127,18 @@ pub async fn compute_next_serial_num(hub: &SheetsHub, spreadsheet_id: &str, temp
         }
         Err(google_sheets4::Error::BadRequest(status)) => {
             // Check if the error message contains "Unable to parse range"
-            // If it does, then the sheet for the current date does not exist.
+            // If it does, then assume the sheet for the current date does not exist.
+            event!(Level::DEBUG, "Bad request.");
             let error_message = format!("{:?}", status);
             if error_message.contains("Unable to parse range") {
+                event!(Level::DEBUG, "Error: {error_message}.");
+                event!(Level::DEBUG, "Creating duplicate sheet...");
                 let _ = duplicate_sheet(hub, spreadsheet_id, template_id, trimmed_date).await.ok()?;
                 return Some(1)
             }
         },
         Err(e) => {
-            println!("Error: {:?}", e);
+            event!(Level::DEBUG, "Error while trying to match response: {e}");
         }
     }
     None
@@ -134,12 +146,15 @@ pub async fn compute_next_serial_num(hub: &SheetsHub, spreadsheet_id: &str, temp
 
 
 /**
- * @brief   Duplicates the template sheet to a new sheet with the given name.
- *
- * @return  Ok(())
- *          Err(())
+  Duplicates the template sheet.
+
+  Returns standard `Result`.
  */
 pub async fn duplicate_sheet(hub: &SheetsHub, spreadsheet_id: &str, template_id: &str, new_sheet_name: &str) -> Result<(), ()> {
+    let duplicate_sheet_span = span!(Level::TRACE, "span: duplicate_sheet");
+    let _duplicate_sheet_span = duplicate_sheet_span.enter();
+
+    event!(Level::TRACE, "Creating DuplicateSheetRequest...");
     let request = DuplicateSheetRequest {
         insert_sheet_index: Some(1),
         new_sheet_name: Some(new_sheet_name.to_string()),
@@ -147,6 +162,7 @@ pub async fn duplicate_sheet(hub: &SheetsHub, spreadsheet_id: &str, template_id:
         ..Default::default()
     };
     
+    event!(Level::TRACE, "Creating BatchUpdateSpreadsheetRequest...");
     let batch_update_request = BatchUpdateSpreadsheetRequest {
         requests: Some(vec![Request {
             duplicate_sheet: Some(request),
@@ -155,21 +171,27 @@ pub async fn duplicate_sheet(hub: &SheetsHub, spreadsheet_id: &str, template_id:
         ..Default::default()
     };
 
+    event!(Level::TRACE, "Updating by batch...");
     let result = hub.spreadsheets().batch_update(batch_update_request, spreadsheet_id)
         .doit()
         .await;
 
     match result {
-        Ok(_) => Ok(()),
-        Err(_) => Err(()),
+        Ok(_) => {
+            event!(Level::DEBUG, "Batch update successful.");
+            Ok(())
+        },
+        Err(e) => {
+            event!(Level::DEBUG, "Batch update failed. Error: {e}");
+            Err(())
+        },
     }
 }
 
 /**
- * @brief   Appends the data within ValueRange to the excel sheet.
- *
- * @return  Ok(())
- *          Err(())
+  Appends the data within `ValueRange` to the excel sheet.
+
+  Returns standard `Result`.
  */
 pub async fn insert_entry(
     spreadsheet_id: &str, 
@@ -193,6 +215,7 @@ pub async fn insert_entry(
     }
 }
 
+/// Prepares to append into the excel sheet by grouping necessary data into a neat struct. 
 pub fn construct_input_data(
     serial_number: u32, 
     member_data: MemberData, 
@@ -201,6 +224,9 @@ pub fn construct_input_data(
     time_out: Option<String>
     ) -> Row 
 {
+
+    let construct_input_data_span = span!(Level::TRACE, "span: construct_input_data");
+    let _construct_input_data_span = construct_input_data_span.enter();
 
     let (time_in, time_out) = misc::set_time(time_in, time_out, member_data.gender);
 

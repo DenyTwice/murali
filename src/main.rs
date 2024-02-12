@@ -1,24 +1,28 @@
+/**! 
+ This file contains the driver code that starts up the bot as well as all the implementations
+ for it's commands.
+*/
+
 mod errors;
 mod sheets;
 mod misc;
 
+use tracing::{event, span, Level};
 use errors::Error;
 use google_sheets4::api::ValueRange;
 use poise::serenity_prelude as serenity;
 use shuttle_poise::ShuttlePoise;
 use shuttle_secrets::SecretStore;
 
+/// Runtime storage of the bot.
 struct Data {
     secret_store: SecretStore,
 } 
 
-/** 
- * Context holds most of the runtime information such as the user who invoked a command,
- * and has methods implemented on it that performs actions such as sending a message. 
- */
+/// Shorthand for poise::Context.
 type Context<'a> = poise::Context<'a, Data, Error>;
 
-/// Command to add an entry for the author to the attendance sheet.
+/// `att` command adds the author's entry to the sheet.
 #[poise::command(slash_command)]
 async fn att(
     ctx: Context<'_>, 
@@ -28,16 +32,25 @@ async fn att(
     ) -> Result<(), Error> 
 {
 
-    ctx.defer().await?;
+    let att_span = span!(Level::TRACE, "span: att");
+    let _att_span = att_span.enter();
+
+    event!(Level::TRACE, "Defering...");
+    ctx.defer().await?; // Defering lets Discord know that the user interaction won't 
+                        // be responded to immediately and holds the bot in a waiting
+                        // state.
 
     let author = ctx.author().name.to_string();
+    event!(Level::TRACE, author=author);
+
+    event!(Level::DEBUG, "Fetching spreadsheet ID...");
     let spreadsheet_id = ctx.data().secret_store 
-        .get("SPREADSHEET_ID") // ID of the attendance sheet. 
+        .get("SPREADSHEET_ID")
         .expect("Spreadsheet ID must be set.");
 
     let template_id = String::from("0");
 
-    // Gets name, gender and roll number
+    event!(Level::DEBUG, "Getting member data...");
     let member_data = match misc::get_member_data(&author) {
         Ok(Some(data)) => data,
         Ok(None) => {
@@ -60,6 +73,7 @@ async fn att(
         },
     };
     
+    event!(Level::DEBUG, "Building hub...");
     let hub = match sheets::build_hub().await {
         Ok(hub) => hub,
         Err(errors::BuildHubError::VarError(_)) => {
@@ -76,6 +90,7 @@ async fn att(
         },
     };
 
+    event!(Level::DEBUG, "Computing next serial number...");
     let serial_num = match sheets::compute_next_serial_num(&hub, spreadsheet_id.as_str(), template_id.as_str()).await {
         Some(num) => num.try_into()?,
         None => {
@@ -86,8 +101,10 @@ async fn att(
         },
     };
 
+    event!(Level::DEBUG, "Constructing input data...");
     let sheet_input = sheets::construct_input_data(serial_num, member_data, seat_number, time_in, time_out);
     
+    event!(Level::DEBUG, "Inserting entry...");
     match sheets::insert_entry(spreadsheet_id.as_str(), hub, ValueRange::from(sheet_input)).await {
         Ok(()) => {
             ctx.reply("Okay.").await?;
@@ -100,17 +117,25 @@ async fn att(
             return Ok(());
         }
     }
-    
 }
 
 #[shuttle_runtime::main]
 async fn main(#[shuttle_secrets::Secrets] secret_store: SecretStore) -> ShuttlePoise<Data, Error>{
+
+    let main_span = span!(Level::TRACE, "span: main");
+    let _main_span = main_span.enter();
+
+    event!(Level::TRACE, "Initializing FrameworkOptions...");
     let framework_options = poise::FrameworkOptions {
             commands: vec![att()],
             ..Default::default()
     };
 
+    event!(Level::TRACE, "FrameworkOptions constructed.");
+    event!(Level::DEBUG, "Fetching DISCORD_TOKEN from secret store...");
     let token = secret_store.get("DISCORD_TOKEN").expect("Discord Token must be set"); 
+
+    event!(Level::TRACE, "Initializing Poise framework...");
     let framework = poise::Framework::builder()
         .options(framework_options)
         .token(token)
@@ -125,5 +150,6 @@ async fn main(#[shuttle_secrets::Secrets] secret_store: SecretStore) -> ShuttleP
         .await
         .map_err(shuttle_runtime::CustomError::new)?;
 
+    event!(Level::INFO, "Startup complete.");
     Ok(framework.into())
 }
